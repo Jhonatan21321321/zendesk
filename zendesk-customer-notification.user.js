@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Zendesk Superbet Notification Sound & Timer
 // @namespace    https://yourdomain.com
-// @version      3.8
+// @version      3.9
 // @description  Play sound, show timer for last customer message in Zendesk and update tab title timer using .iACaSM time and last full name from .iACaSM span.kawtYt
 // @author       Modified
 // @match        *://*.zendesk.com/*
