@@ -6,8 +6,6 @@
 // @author       Modified
 // @match        *://*.zendesk.com/*
 // @grant        GM_addStyle
-// @downloadURL https://update.greasyfork.org/scripts/546829/Zendesk%20Customer%20Notification%20Sound%20%20Timer%20with%20Tab%20Title%20Update.user.js
-// @updateURL https://update.greasyfork.org/scripts/546829/Zendesk%20Customer%20Notification%20Sound%20%20Timer%20with%20Tab%20Title%20Update.meta.js
 // ==/UserScript==
 
 (function() {
