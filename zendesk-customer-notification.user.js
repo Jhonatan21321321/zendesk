@@ -1,4 +1,4 @@
-// ==UserScript==
+// ==UserScript== oi
 // @name         Zendesk Customer Notification Sound & Timer with Tab Title Update
 // @namespace    https://yourdomain.com
 // @version      3.6
