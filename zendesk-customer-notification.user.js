@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Zendesk Superbet Notification Sound & Robust Timer
 // @namespace    https://yourdomain.com
-// @version      4.3
+// @version      4.5
 // @description  Play sound, show timer for last customer message in Zendesk and update tab title timer robustly even in inactive tabs
 // @author       Modified
 // @match        *://*.zendesk.com/*
@@ -182,3 +182,4 @@
     });
 
 })();
+
