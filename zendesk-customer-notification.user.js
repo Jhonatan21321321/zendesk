@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Zendesk Superbet Notification Sound & Timer
+// @name         Zendesk Superbet Notification Sound & Robust Timer
 // @namespace    https://yourdomain.com
-// @version      4.2
-// @description  Play sound, show timer for last customer message in Zendesk and update tab title timer using .iACaSM time and last full name from .iACaSM span.kawtYt
+// @version      4.3
+// @description  Play sound, show timer for last customer message in Zendesk and update tab title timer robustly even in inactive tabs
 // @author       Modified
 // @match        *://*.zendesk.com/*
 // @grant        GM_addStyle
@@ -14,9 +14,11 @@
     'use strict';
 
     const notificationSound = new Audio("https://zvukitop.com/wp-content/uploads/2021/03/zvuki-opovesheniya.mp3");
-    let lastCustomerMessageTime = null;
+    let lastCustomerMessageTime = null; // Date object
     let timerElement = null;
     let originalTitle = document.title;
+    let hasUnreadMessage = false;
+    let userViewedMessages = false;
 
     GM_addStyle(`
         .customer-notification-timer {
@@ -53,44 +55,53 @@
         return timerElement;
     }
 
-    function updateTimer() {
-        if (!lastCustomerMessageTime) return;
-
-        const now = new Date();
-        const diff = Math.floor((now - lastCustomerMessageTime) / 1000);
-        const minutes = Math.floor(diff / 60);
-        const seconds = diff % 60;
-
-        const timer = createTimerElement();
-        timer.textContent = `Última mensagem: ${minutes}m ${seconds}s atrás`;
+    function formatDiffSeconds(diffSeconds) {
+        if (diffSeconds < 0) diffSeconds = 0;
+        const minutes = Math.floor(diffSeconds / 60);
+        const seconds = diffSeconds % 60;
+        return `${minutes}m ${seconds}s`;
     }
 
-    function updateTabTimer() {
+    // Atualiza tanto o timer visível quanto o título usando timestamps reais
+    function updateTimers() {
+        // Atualiza timer visual baseado em lastCustomerMessageTime
+        if (lastCustomerMessageTime) {
+            const now = Date.now();
+            const diff = Math.floor((now - lastCustomerMessageTime.getTime()) / 1000);
+            const timer = createTimerElement();
+            timer.textContent = `Última mensagem: ${formatDiffSeconds(diff)} atrás`;
+        }
+
+        // Atualiza título baseado no último elemento .iACaSM time (se presente)
         const times = document.querySelectorAll('.iACaSM time');
         const spans = document.querySelectorAll('.iACaSM span.kawtYt');
 
-        if (times.length === 0) {
+        if (times.length > 0) {
+            // sempre use o atributo dateTime para calcular diferença real
+            const lastTimeElement = times[times.length - 1];
+            const messageTime = new Date(lastTimeElement.dateTime);
+            const now = Date.now();
+            const diff = Math.floor((now - messageTime.getTime()) / 1000);
+
+            const timeString = `[${formatDiffSeconds(diff)}]`;
+            const statusIndicator = hasUnreadMessage ? (userViewedMessages ? '🟢 ' : '🔴 ') : '';
+
+            let lastFullName = '';
+            if (spans.length > 0) {
+                lastFullName = spans[spans.length - 1].textContent.trim();
+            }
+
+            // Marca como visualizado quando a aba está ativa
+            if (!document.hidden && hasUnreadMessage && !userViewedMessages) {
+                userViewedMessages = true;
+            }
+
+            document.title = lastFullName
+                ? `${statusIndicator}${timeString} ${lastFullName} - ${originalTitle}`
+                : `${statusIndicator}${timeString} ${originalTitle}`;
+        } else {
             document.title = originalTitle;
-            return;
         }
-
-        const lastTimeElement = times[times.length - 1];
-        const messageTime = new Date(lastTimeElement.dateTime);
-        const now = new Date();
-        const diff = Math.floor((now - messageTime) / 1000);
-        const minutes = Math.floor(diff / 60);
-        const seconds = diff % 60;
-
-        const timeString = `[${minutes}m ${seconds}s]`;
-
-        let lastFullName = '';
-        if (spans.length > 0) {
-            lastFullName = spans[spans.length - 1].textContent.trim();
-        }
-
-        document.title = lastFullName
-            ? `${timeString} ${lastFullName} - ${originalTitle}`
-            : `${timeString} ${originalTitle}`;
     }
 
     function checkForCustomerMessages() {
@@ -101,17 +112,13 @@
             const lastTimeElement = times[times.length - 1];
             const messageTime = new Date(lastTimeElement.dateTime);
 
-            if (!lastCustomerMessageTime || messageTime > lastCustomerMessageTime) {
+            if (!lastCustomerMessageTime || messageTime.getTime() > lastCustomerMessageTime.getTime()) {
                 lastCustomerMessageTime = messageTime;
-                notificationSound.play();
+                hasUnreadMessage = true;
+                userViewedMessages = false;
+                // Tente tocar som (pode ser bloqueado pelo navegador até interação)
+                try { notificationSound.play().catch(()=>{}); } catch(e) {}
                 notificationButton.classList.add("has-new-customer-messages");
-
-                if (!window.timerInterval) {
-                    window.timerInterval = setInterval(() => {
-                        updateTimer();
-                        updateTabTimer();
-                    }, 1000);
-                }
             }
         } else {
             if (notificationButton) {
@@ -125,12 +132,53 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
+    // Watchdog/gerenciador de timer:
+    let mainTimer = null;
+    let lastTick = Date.now();
+
+    function tick() {
+        // Atualiza marcando o tempo atual; não contamos com execução a cada 1s exato
+        lastTick = Date.now();
+        updateTimers();
+    }
+
+    function startMainTimer() {
+        if (mainTimer) clearInterval(mainTimer);
+        // intervalo de 1s — pode ser throttled em background, está ok porque usamos timestamps reais
+        mainTimer = setInterval(tick, 1000);
+        // também faça um tick imediato
+        tick();
+    }
+
+    // Verifica se o timer foi fortemente atrasado por muito tempo; se sim, reinicia
+    function startWatchdog() {
+        const WATCHDOG_THRESHOLD_MS = 15000; // 15s - se passar disso sem tick, reinicia
+        setInterval(() => {
+            const now = Date.now();
+            if (now - lastTick > WATCHDOG_THRESHOLD_MS) {
+                console.log('Watchdog: detectado atraso do timer => reiniciando interval.');
+                startMainTimer();
+            }
+        }, 5000);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        // Ao voltar a aba ativa, atualiza imediatamente
+        if (!document.hidden) {
+            tick();
+            if (hasUnreadMessage) userViewedMessages = true;
+        }
+    });
+
     window.addEventListener('load', () => {
         setTimeout(() => {
             startObserver();
-            updateTabTimer();
-            setInterval(updateTabTimer, 1000);
-        }, 3000);
+            // Checagem inicial
+            checkForCustomerMessages();
+            // Start timer + watchdog
+            startMainTimer();
+            startWatchdog();
+        }, 2500);
     });
 
 })();
