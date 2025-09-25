@@ -106,7 +106,7 @@
 
     function checkForCustomerMessages() {
         const times = document.querySelectorAll('.iACaSM time');
-        const notificationButton = document.querySelector('button[aria-label="Notifications"]');
+        const notificationButton = document.querySelector('button[aria-label="Notifications"], button[aria-label="Notificações"]');
 
         if (times.length > 0 && notificationButton) {
             const lastTimeElement = times[times.length - 1];
