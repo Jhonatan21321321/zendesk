@@ -14,12 +14,13 @@
     'use strict';
 
     const notificationSound = new Audio("https://zvukitop.com/wp-content/uploads/2021/03/zvuki-opovesheniya.mp3");
-    let lastCustomerMessageTime = null; // Date object
+    let lastCustomerMessageTime = null;
     let timerElement = null;
-    let originalTitle = document.title;
+    const originalTitle = document.title;
     let hasUnreadMessage = false;
     let userViewedMessages = false;
 
+    // Estilos
     GM_addStyle(`
         .customer-notification-timer {
             position: fixed;
@@ -62,27 +63,22 @@
         return `${minutes}m ${seconds}s`;
     }
 
-    // Atualiza tanto o timer visível quanto o título usando timestamps reais
     function updateTimers() {
-        // Atualiza timer visual baseado em lastCustomerMessageTime
         if (lastCustomerMessageTime) {
             const now = Date.now();
             const diff = Math.floor((now - lastCustomerMessageTime.getTime()) / 1000);
-            const timer = createTimerElement();
-            timer.textContent = `Última mensagem: ${formatDiffSeconds(diff)} atrás`;
+            createTimerElement().textContent = `Última mensagem: ${formatDiffSeconds(diff)} atrás`;
         }
 
-        // Atualiza título baseado no último elemento .iACaSM time (se presente)
+        // Atualizar título
         const times = document.querySelectorAll('.iACaSM time');
         const spans = document.querySelectorAll('.iACaSM span.kawtYt');
 
         if (times.length > 0) {
-            // sempre use o atributo dateTime para calcular diferença real
             const lastTimeElement = times[times.length - 1];
             const messageTime = new Date(lastTimeElement.dateTime);
             const now = Date.now();
             const diff = Math.floor((now - messageTime.getTime()) / 1000);
-
             const timeString = `[${formatDiffSeconds(diff)}]`;
             const statusIndicator = hasUnreadMessage ? (userViewedMessages ? '🟢 ' : '🔴 ') : '';
 
@@ -91,7 +87,6 @@
                 lastFullName = spans[spans.length - 1].textContent.trim();
             }
 
-            // Marca como visualizado quando a aba está ativa
             if (!document.hidden && hasUnreadMessage && !userViewedMessages) {
                 userViewedMessages = true;
             }
@@ -106,7 +101,9 @@
 
     function checkForCustomerMessages() {
         const times = document.querySelectorAll('.iACaSM time');
-        const notificationButton = document.querySelector('button[aria-label="Notifications"], button[aria-label="Notificações"]');
+
+        // Encontrar botão de notificações de forma mais robusta
+        const notificationButton = findNotificationButton();
 
         if (times.length > 0 && notificationButton) {
             const lastTimeElement = times[times.length - 1];
@@ -116,15 +113,38 @@
                 lastCustomerMessageTime = messageTime;
                 hasUnreadMessage = true;
                 userViewedMessages = false;
-                // Tente tocar som (pode ser bloqueado pelo navegador até interação)
                 try { notificationSound.play().catch(()=>{}); } catch(e) {}
                 notificationButton.classList.add("has-new-customer-messages");
             }
-        } else {
-            if (notificationButton) {
-                notificationButton.classList.remove("has-new-customer-messages");
-            }
+        } else if (notificationButton) {
+            notificationButton.classList.remove("has-new-customer-messages");
         }
+    }
+
+    // Função para encontrar botão de notificações
+    function findNotificationButton() {
+        // Estratégia 1: procurar por elementos com classes comuns
+        const candidates = document.querySelectorAll('button, div, span');
+        for (const el of candidates) {
+            // Verificar atributos comuns
+            if (el.getAttribute && el.getAttribute('aria-label')) {
+                const label = el.getAttribute('aria-label').toLowerCase();
+                // Procurar por palavras relacionadas a notificações
+                if (label.includes('notification') || label.includes('notificações') || label.includes('alert')) {
+                    return el;
+                }
+            }
+            // Verificar classes que possam indicar botão de notificação
+            if (el.className && typeof el.className === 'string') {
+                const classNames = el.className.toLowerCase();
+                if (classNames.includes('notification') || classNames.includes('alert') || classNames.includes('notify')) {
+                    return el;
+                }
+            }
+            // Pode expandir com outros critérios
+        }
+        // Caso não encontre, retorna null
+        return null;
     }
 
     function startObserver() {
@@ -132,38 +152,33 @@
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // Watchdog/gerenciador de timer:
+    // Timer robusto
     let mainTimer = null;
     let lastTick = Date.now();
 
     function tick() {
-        // Atualiza marcando o tempo atual; não contamos com execução a cada 1s exato
         lastTick = Date.now();
         updateTimers();
     }
 
     function startMainTimer() {
         if (mainTimer) clearInterval(mainTimer);
-        // intervalo de 1s — pode ser throttled em background, está ok porque usamos timestamps reais
         mainTimer = setInterval(tick, 1000);
-        // também faça um tick imediato
         tick();
     }
 
-    // Verifica se o timer foi fortemente atrasado por muito tempo; se sim, reinicia
     function startWatchdog() {
-        const WATCHDOG_THRESHOLD_MS = 15000; // 15s - se passar disso sem tick, reinicia
+        const WATCHDOG_THRESHOLD_MS = 15000;
         setInterval(() => {
             const now = Date.now();
             if (now - lastTick > WATCHDOG_THRESHOLD_MS) {
-                console.log('Watchdog: detectado atraso do timer => reiniciando interval.');
+                console.log('Watchdog: atraso detectado, reiniciando timer.');
                 startMainTimer();
             }
         }, 5000);
     }
 
     document.addEventListener('visibilitychange', () => {
-        // Ao voltar a aba ativa, atualiza imediatamente
         if (!document.hidden) {
             tick();
             if (hasUnreadMessage) userViewedMessages = true;
@@ -173,13 +188,10 @@
     window.addEventListener('load', () => {
         setTimeout(() => {
             startObserver();
-            // Checagem inicial
             checkForCustomerMessages();
-            // Start timer + watchdog
             startMainTimer();
             startWatchdog();
         }, 2500);
     });
 
 })();
-
