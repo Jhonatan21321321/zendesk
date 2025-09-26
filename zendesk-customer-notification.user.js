@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         Zendesk Superbet Notification Sound & Robust Timer
+// @name         Zendesk Superbet Notification Sound & Robust Timer (Idioma-agnóstico)
 // @namespace    https://yourdomain.com
-// @version      4.5
-// @description  Play sound, show timer for last customer message in Zendesk and update tab title timer robustly even in inactive tabs
-// @author       Modified
+// @version      4.6
+// @description  Notificação sonora e timer para última mensagem do cliente no Zendesk, agora sem depender de idioma!
+// @author       Modificado
 // @match        *://*.zendesk.com/*
 // @grant        GM_addStyle
 // @updateURL    https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/zendesk-customer-notification.user.js
@@ -16,11 +16,11 @@
     const notificationSound = new Audio("https://zvukitop.com/wp-content/uploads/2021/03/zvuki-opovesheniya.mp3");
     let lastCustomerMessageTime = null;
     let timerElement = null;
-    const originalTitle = document.title;
+    let originalTitle = document.title;
     let hasUnreadMessage = false;
     let userViewedMessages = false;
 
-    // Estilos
+    // CSS
     GM_addStyle(`
         .customer-notification-timer {
             position: fixed;
@@ -47,6 +47,31 @@
         }
     `);
 
+    // Função robusta para encontrar o botão de notificações, independente de idioma
+    function findNotificationButton() {
+        // 1. Busca por botão com SVG de sino (ícone universal de notificações)
+        let candidates = Array.from(document.querySelectorAll('button, [role="button"]'));
+
+        for (let btn of candidates) {
+            // SVG sino: path com 'M10 21h4a2 2 0 0 0 2-2v-1' ou viewBox típico
+            const svg = btn.querySelector('svg');
+            if (svg && svg.innerHTML.match(/bell|notifica/i)) return btn;
+            // Contém badge típico de notificações (ponto/vermelho)
+            if (btn.innerHTML.match(/badge|dot|notifi/i)) return btn;
+            // Classes comuns Zendesk (pode variar, mas algumas são recorrentes)
+            if (btn.className && btn.className.toLowerCase().includes("notification")) return btn;
+            // ARIA role notification
+            if (btn.getAttribute('role') === 'notification') return btn;
+        }
+        // 2. Fallback: botão visível no topo direito com SVG
+        let navButtons = Array.from(document.querySelectorAll('nav button, nav [role="button"]'));
+        for (let btn of navButtons) {
+            if (btn.offsetWidth > 0 && btn.querySelector('svg')) return btn;
+        }
+        return null;
+    }
+
+    // Timer de exibição
     function createTimerElement() {
         if (!timerElement) {
             timerElement = document.createElement('div');
@@ -60,17 +85,18 @@
         if (diffSeconds < 0) diffSeconds = 0;
         const minutes = Math.floor(diffSeconds / 60);
         const seconds = diffSeconds % 60;
-        return `${minutes}m ${seconds}s`;
+        return `${minutes}m ${seconds < 10 ? '0'+seconds : seconds}s`;
     }
 
+    // Atualiza timer e título
     function updateTimers() {
         if (lastCustomerMessageTime) {
             const now = Date.now();
             const diff = Math.floor((now - lastCustomerMessageTime.getTime()) / 1000);
-            createTimerElement().textContent = `Última mensagem: ${formatDiffSeconds(diff)} atrás`;
+            const timer = createTimerElement();
+            timer.textContent = `Última mensagem: ${formatDiffSeconds(diff)} atrás`;
         }
 
-        // Atualizar título
         const times = document.querySelectorAll('.iACaSM time');
         const spans = document.querySelectorAll('.iACaSM span.kawtYt');
 
@@ -79,13 +105,13 @@
             const messageTime = new Date(lastTimeElement.dateTime);
             const now = Date.now();
             const diff = Math.floor((now - messageTime.getTime()) / 1000);
+
             const timeString = `[${formatDiffSeconds(diff)}]`;
             const statusIndicator = hasUnreadMessage ? (userViewedMessages ? '🟢 ' : '🔴 ') : '';
 
             let lastFullName = '';
-            if (spans.length > 0) {
+            if (spans.length > 0)
                 lastFullName = spans[spans.length - 1].textContent.trim();
-            }
 
             if (!document.hidden && hasUnreadMessage && !userViewedMessages) {
                 userViewedMessages = true;
@@ -99,13 +125,12 @@
         }
     }
 
+    // Checa novas mensagens
     function checkForCustomerMessages() {
         const times = document.querySelectorAll('.iACaSM time');
-
-        // Encontrar botão de notificações de forma mais robusta
         const notificationButton = findNotificationButton();
 
-        if (times.length > 0 && notificationButton) {
+        if (times.length > 0) {
             const lastTimeElement = times[times.length - 1];
             const messageTime = new Date(lastTimeElement.dateTime);
 
@@ -114,45 +139,22 @@
                 hasUnreadMessage = true;
                 userViewedMessages = false;
                 try { notificationSound.play().catch(()=>{}); } catch(e) {}
-                notificationButton.classList.add("has-new-customer-messages");
+                if (notificationButton) notificationButton.classList.add("has-new-customer-messages");
             }
-        } else if (notificationButton) {
-            notificationButton.classList.remove("has-new-customer-messages");
+        } else {
+            if (notificationButton) {
+                notificationButton.classList.remove("has-new-customer-messages");
+            }
         }
     }
 
-    // Função para encontrar botão de notificações
-    function findNotificationButton() {
-        // Estratégia 1: procurar por elementos com classes comuns
-        const candidates = document.querySelectorAll('button, div, span');
-        for (const el of candidates) {
-            // Verificar atributos comuns
-            if (el.getAttribute && el.getAttribute('aria-label')) {
-                const label = el.getAttribute('aria-label').toLowerCase();
-                // Procurar por palavras relacionadas a notificações
-                if (label.includes('notification') || label.includes('notificações') || label.includes('alert')) {
-                    return el;
-                }
-            }
-            // Verificar classes que possam indicar botão de notificação
-            if (el.className && typeof el.className === 'string') {
-                const classNames = el.className.toLowerCase();
-                if (classNames.includes('notification') || classNames.includes('alert') || classNames.includes('notify')) {
-                    return el;
-                }
-            }
-            // Pode expandir com outros critérios
-        }
-        // Caso não encontre, retorna null
-        return null;
-    }
-
+    // Observador de mudanças
     function startObserver() {
         const observer = new MutationObserver(checkForCustomerMessages);
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // Timer robusto
+    // Timer e watchdog
     let mainTimer = null;
     let lastTick = Date.now();
 
@@ -172,7 +174,6 @@
         setInterval(() => {
             const now = Date.now();
             if (now - lastTick > WATCHDOG_THRESHOLD_MS) {
-                console.log('Watchdog: atraso detectado, reiniciando timer.');
                 startMainTimer();
             }
         }, 5000);
