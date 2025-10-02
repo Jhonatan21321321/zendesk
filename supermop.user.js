@@ -2,7 +2,7 @@
 // @name         Valida Nome em div.cjmZAi e mostra Email (Superbet Zendesk) - Sem Dados Locais
 // @namespace    http://tampermonkey.net/
 // @version      1.9
-// @description  Clica no div.value.groups e valida emails em span.email-text exibindo dados no div.cjmZAi - Versão Google Sheets (sem fallback local)
+// @description  Supermop Zendesk
 // @author       Você
 // @match        https://superbetbr.zendesk.com/agent/*
 // @grant        GM_xmlhttpRequest
