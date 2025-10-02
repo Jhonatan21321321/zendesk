@@ -8,8 +8,8 @@
 // @grant        GM_xmlhttpRequest
 // @connect      docs.google.com
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.js
-// @downloadURL  https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.js
+// @updateURL    https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.user.js
+// @downloadURL  https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.user.js
 // ==/UserScript==
 (function () {
     'use strict';
