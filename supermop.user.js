@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Valida Nome em div.cjmZAi e mostra Email (Superbet Zendesk) - Sem Dados Locais
+// @name         Supermop Zendesk
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1
 // @description  Supermop Zendesk
 // @author       Você
 // @match        https://superbetbr.zendesk.com/agent/*
