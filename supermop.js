@@ -1,24 +1,21 @@
 // ==UserScript==
 // @name         Valida Nome em div.cjmZAi e mostra Email (Superbet Zendesk) - Sem Dados Locais
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      1.9
 // @description  Clica no div.value.groups e valida emails em span.email-text exibindo dados no div.cjmZAi - Versão Google Sheets (sem fallback local)
 // @author       Você
 // @match        https://superbetbr.zendesk.com/agent/*
 // @grant        GM_xmlhttpRequest
 // @connect      docs.google.com
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/zendesk-customer-notification.user.js
-// @downloadURL  https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/zendesk-customer-notification.user.js
+// @updateURL    https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.js
+// @downloadURL  https://raw.githubusercontent.com/Jhonatan21321321/zendesk/main/supermop.js
 // ==/UserScript==
-
 (function () {
     'use strict';
-
     let contatos = {};
     let intervaloAtivo = null;
     let grupoClicado = false;
-
     // Criar botão
     const btn = document.createElement('button');
     btn.innerHTML = '🔄';
@@ -31,12 +28,10 @@
         carregarDadosSheets(() => btn.innerHTML = '🔄');
     };
     document.body.appendChild(btn);
-
     // Função para carregar dados do Google Sheets
     function carregarDadosSheets(callback) {
         const sheetId = '1Mg4oqCx8CIyHKnSk7Nq7fGbrztoD6e-pa2fPgmPNO_I';
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-
         GM_xmlhttpRequest({
             method: 'GET',
             url: url,
@@ -54,7 +49,6 @@
             }
         });
     }
-
     function processarDadosSheets(data) {
         contatos = {};
         data.table.rows.forEach(row => {
@@ -68,20 +62,16 @@
         console.log('Dados carregados do Sheets:', contatos);
         iniciarMonitoramento();
     }
-
     function iniciarMonitoramento() {
         if (intervaloAtivo) clearInterval(intervaloAtivo);
-
         intervaloAtivo = setInterval(() => {
             const el = document.querySelector("div.value.groups");
             if (el && !grupoClicado) {
                 el.click();
                 grupoClicado = true;
             }
-
             const emailEl = document.querySelector("span.email-text");
             const target = document.querySelector("div.cjmZAi");
-
             if (emailEl && target && !target.querySelector(".email-injetado")) {
                 const email = emailEl.innerText.trim();
                 for (const emailKey in contatos) {
@@ -97,6 +87,5 @@
             }
         }, 1000);
     }
-
     carregarDadosSheets();
 })();
